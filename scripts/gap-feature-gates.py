@@ -3,7 +3,9 @@
 
 import argparse
 import json
+import socket
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from urllib.request import urlopen, Request
@@ -20,27 +22,34 @@ from reporters import generate_html_report, generate_json_report
 SIPPY_FEATURE_GATES_API = "https://sippy.dptools.openshift.org/api/feature_gates"
 
 
-def fetch_feature_gates(version):
+def fetch_feature_gates(version, max_retries=2):
     """Fetch feature gates for a specific version from Sippy API."""
     log_info(f"Fetching feature gates for version {version}...")
 
-    try:
-        url = f"{SIPPY_FEATURE_GATES_API}?release={version}"
-        req = Request(url, headers={'User-Agent': 'gap-analysis-script'})
-        with urlopen(req, timeout=30) as response:
-            data = response.read()
-            gates = json.loads(data)
+    url = f"{SIPPY_FEATURE_GATES_API}?release={version}"
+    req = Request(url, headers={'User-Agent': 'gap-analysis-script'})
 
-        if not gates:
-            log_error(f"No feature gates found for version {version}")
-            sys.exit(1)
+    for attempt in range(max_retries + 1):
+        try:
+            with urlopen(req, timeout=30) as response:
+                data = response.read()
+                gates = json.loads(data)
 
-        log_success(f"Fetched {len(gates)} feature gates for version {version}")
-        return gates
+            if not gates:
+                log_error(f"No feature gates found for version {version}")
+                return []
 
-    except (URLError, json.JSONDecodeError) as e:
-        log_error(f"Failed to fetch feature gates for version {version}: {e}")
-        sys.exit(1)
+            log_success(f"Fetched {len(gates)} feature gates for version {version}")
+            return gates
+
+        except (URLError, socket.timeout, json.JSONDecodeError) as e:
+            if attempt < max_retries:
+                delay = 2 ** (attempt + 1)
+                log_info(f"Retry {attempt + 1}/{max_retries} after {delay}s: {e}")
+                time.sleep(delay)
+            else:
+                log_error(f"Failed to fetch feature gates for version {version} after {max_retries + 1} attempts: {e}")
+                return []
 
 
 def is_hypershift_relevant(enabled_list):
