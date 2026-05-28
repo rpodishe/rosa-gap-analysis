@@ -122,12 +122,12 @@ def main():
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
     # Generate HTML report
-    html_file = os.path.join(args.report_dir, f"gap-analysis-full_{args.baseline}_to_{args.target}_{timestamp}.html")
+    html_file = os.path.join(args.report_dir, f"gap-analysis-full_{args.baseline}_to_{args.target}.html")
     generate_html_report(report_data, html_file)
     log_success(f"Combined HTML report generated: {html_file}")
 
     # Generate JSON report
-    json_file = os.path.join(args.report_dir, f"gap-analysis-full_{args.baseline}_to_{args.target}_{timestamp}.json")
+    json_file = os.path.join(args.report_dir, f"gap-analysis-full_{args.baseline}_to_{args.target}.json")
     generate_json_report(report_data, json_file)
     log_success(f"Combined JSON report generated: {json_file}")
 

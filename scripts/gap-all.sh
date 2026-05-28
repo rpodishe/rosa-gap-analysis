@@ -296,6 +296,10 @@ if [[ "$VERBOSE" == "true" ]]; then
 fi
 
 main() {
+    # Capture start time
+    START_TIME=$(date +%s)
+    START_TIME_FORMATTED=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
     # Create report directory if it doesn't exist
     mkdir -p "$REPORT_DIR"
 
@@ -322,14 +326,57 @@ main() {
     log_info "Report Directory: $REPORT_DIR"
     log_info "========================================="
 
-    local aws_result=0
-    local gcp_result=0
-    local feature_gates_result=0
-    local ocp_gate_ack_result=0
-    local aws_output=""
-    local gcp_output=""
-    local feature_gates_output=""
-    local ocp_gate_ack_output=""
+    # Use associative arrays to store check results
+    declare -A check_results=(
+        [aws]=0
+        [gcp]=0
+        [ocp]=0
+        [feature-gates]=0
+    )
+    declare -A check_status=(
+        [aws]=""
+        [gcp]=""
+        [ocp]=""
+        [feature-gates]=""
+    )
+    declare -A check_message=(
+        [aws]=""
+        [gcp]=""
+        [ocp]=""
+        [feature-gates]=""
+    )
+    declare -A check_diff_count=(
+        [aws]=0
+        [gcp]=0
+        [ocp]=0
+        [feature-gates]=0
+    )
+
+    # Define check metadata (check_num, check_name, check_type)
+    declare -A check_num=(
+        [aws]=1
+        [gcp]=2
+        [ocp]=3
+        [feature-gates]=4
+    )
+    declare -A check_name=(
+        [aws]="AWS STS Policy Gap"
+        [gcp]="GCP WIF Template Gap"
+        [ocp]="OCP Admin Gate Acknowledgments"
+        [feature-gates]="Feature Gates Gap"
+    )
+    declare -A check_type=(
+        [aws]="standard"
+        [gcp]="standard"
+        [ocp]="standard"
+        [feature-gates]="informational"
+    )
+    declare -A check_count_field=(
+        [aws]="differences_count"
+        [gcp]="differences_count"
+        [ocp]="gates_count"
+        [feature-gates]="total_changes"
+    )
 
     # Set environment variable to skip individual reports (full report will be generated instead)
     export GAP_FULL_REPORT=1
@@ -345,6 +392,91 @@ main() {
         return 1
     }
 
+    # Helper function to print summary lines
+    print_summary_line() {
+        echo "$1"
+    }
+
+    # Helper function to print summary header
+    print_summary_header() {
+        print_summary_line "==============================================================================="
+        print_summary_line "$1"
+        print_summary_line "==============================================================================="
+    }
+
+    # Helper function to print check result
+    print_check_result() {
+        local symbol="$1"
+        local check_num="$2"
+        local check_name="$3"
+        local status="$4"
+        local message="$5"
+
+        print_summary_line "[$symbol] CHECK #$check_num: $check_name - $status ($message)"
+    }
+
+    # Helper function to read status file and populate check arrays
+    read_check_status() {
+        local step="$1"
+        local num="${check_num[$step]}"
+        local count_field="${check_count_field[$step]}"
+        local status_file="${REPORT_DIR}/status-check-${num}.json"
+
+        if [[ -f "$status_file" ]]; then
+            check_status[$step]=$(jq -r '.status' "$status_file" 2>/dev/null || echo "UNKNOWN")
+            check_message[$step]=$(jq -r '.details.message' "$status_file" 2>/dev/null || echo "status unavailable")
+            check_diff_count[$step]=$(jq -r ".details.${count_field} // 0" "$status_file" 2>/dev/null || echo "0")
+        else
+            check_status[$step]="UNKNOWN"
+            check_message[$step]="status file not found"
+            check_diff_count[$step]=0
+        fi
+    }
+
+    # Helper function to print individual check summary
+    print_individual_check() {
+        local step_name="$1"
+        local check_num="$2"
+        local check_name="$3"
+        local result="$4"
+        local diff_count="$5"
+        local message="$6"
+        local check_type="${7:-standard}"  # standard or informational
+
+        if ! should_run_step "$step_name"; then
+            return
+        fi
+
+        local symbol=""
+        local status=""
+
+        if [[ $result -eq 0 ]]; then
+            # Check passed
+            if [[ $diff_count -gt 0 ]]; then
+                symbol="⚠ "
+                status="WARNING"
+            else
+                symbol="✓ "
+                if [[ "$check_type" == "informational" ]]; then
+                    status="INFORMATIONAL"
+                else
+                    status="PASS"
+                fi
+            fi
+        else
+            # Check failed
+            symbol="✗ "
+            if [[ "$check_type" == "informational" ]]; then
+                symbol="⚠ "
+                status="ERROR"
+            else
+                status="FAIL"
+            fi
+        fi
+
+        print_check_result "$symbol" "$check_num" "$check_name" "$status" "$message"
+    }
+
     # Run AWS STS analysis
     if should_run_step "aws"; then
         log_info ""
@@ -354,10 +486,13 @@ main() {
             --target "$TARGET" \
             --report-dir "$REPORT_DIR" \
             $VERBOSE_FLAG 2>&1; then
-            aws_result=0
+            check_results[aws]=0
         else
-            aws_result=1
+            check_results[aws]=1
         fi
+
+        # Read status file
+        read_check_status "aws"
     fi
 
     # Run GCP WIF analysis
@@ -369,10 +504,13 @@ main() {
             --target "$TARGET" \
             --report-dir "$REPORT_DIR" \
             $VERBOSE_FLAG 2>&1; then
-            gcp_result=0
+            check_results[gcp]=0
         else
-            gcp_result=1
+            check_results[gcp]=1
         fi
+
+        # Read status file
+        read_check_status "gcp"
     fi
 
     # Run OCP Gate Acknowledgment analysis
@@ -384,10 +522,13 @@ main() {
             --target "$TARGET" \
             --report-dir "$REPORT_DIR" \
             $VERBOSE_FLAG 2>&1; then
-            ocp_gate_ack_result=0
+            check_results[ocp]=0
         else
-            ocp_gate_ack_result=1
+            check_results[ocp]=1
         fi
+
+        # Read status file
+        read_check_status "ocp"
     fi
 
     # Run Feature Gates analysis (informational only - always passes)
@@ -400,46 +541,19 @@ main() {
             --target "$TARGET" \
             --report-dir "$REPORT_DIR" \
             $VERBOSE_FLAG 2>&1; then
-            feature_gates_result=0
+            check_results[feature-gates]=0
         else
-            feature_gates_result=1
+            check_results[feature-gates]=1
         fi
+
+        # Read status file
+        read_check_status "feature-gates"
     fi
 
-    # Print summary
-    log_info ""
-    log_info "========================================="
-    log_info "  Gap Analysis Complete!"
-    log_info "========================================="
-
-    # Check if any validation checks failed (only for steps that ran)
-    local any_failed=false
-    if should_run_step "aws" && [[ $aws_result -eq 1 ]]; then
-        any_failed=true
-    fi
-    if should_run_step "gcp" && [[ $gcp_result -eq 1 ]]; then
-        any_failed=true
-    fi
-    if should_run_step "ocp" && [[ $ocp_gate_ack_result -eq 1 ]]; then
-        any_failed=true
-    fi
-
-    if [[ "$any_failed" == "false" ]]; then
-        log_success "All validation checks passed"
-    else
-        if should_run_step "aws" && [[ $aws_result -eq 1 ]]; then
-            log_info "AWS STS: Target version validation failed (FAIL)"
-        fi
-        if should_run_step "gcp" && [[ $gcp_result -eq 1 ]]; then
-            log_info "GCP WIF: Target version validation failed (FAIL)"
-        fi
-        if should_run_step "ocp" && [[ $ocp_gate_ack_result -eq 1 ]]; then
-            log_info "OCP Gate Acknowledgments: Target version validation failed (FAIL)"
-        fi
-        if should_run_step "feature-gates"; then
-            log_info "Feature Gates: Informational only (does not affect pass/fail)"
-        fi
-    fi
+    # Calculate duration
+    local end_time=$(date +%s)
+    local duration=$((end_time - START_TIME))
+    local duration_formatted=$(printf '%dm %ds' $((duration / 60)) $((duration % 60)))
 
     # Generate combined report
     log_info ""
@@ -456,28 +570,102 @@ main() {
     # If feature_gates_result=1, it means script execution error, which should fail
     local should_exit_fail=false
 
-    if should_run_step "aws" && [[ $aws_result -eq 1 ]]; then
-        should_exit_fail=true
-    fi
-    if should_run_step "gcp" && [[ $gcp_result -eq 1 ]]; then
-        should_exit_fail=true
-    fi
-    if should_run_step "ocp" && [[ $ocp_gate_ack_result -eq 1 ]]; then
-        should_exit_fail=true
-    fi
-    if should_run_step "feature-gates" && [[ $feature_gates_result -eq 1 ]]; then
-        should_exit_fail=true
-    fi
+    for step in aws gcp ocp feature-gates; do
+        if should_run_step "$step" && [[ ${check_results[$step]} -eq 1 ]]; then
+            should_exit_fail=true
+            break
+        fi
+    done
 
     if [[ "$should_exit_fail" == "true" ]]; then
         log_error ""
         log_error "❌ FAILED"
-        exit 1
     else
         log_success ""
         log_success "✅ PASSED"
-        exit 0
     fi
+
+
+    # Print comprehensive summary
+    log_info ""
+    print_summary_header "GAP ANALYSIS SUMMARY"
+
+    # Job information (if running in CI)
+    if [[ -n "${job}" ]]; then
+        print_summary_line "Job: ${job}"
+    fi
+    if [[ -n "${buildid}" ]]; then
+        print_summary_line "Run: ${buildid}"
+    fi
+
+    print_summary_line "Baseline: ${BASELINE}"
+    print_summary_line "Target: ${TARGET}"
+    print_summary_line "Started: ${START_TIME_FORMATTED}"
+    print_summary_line "Completed: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+    print_summary_line "Duration: ${duration_formatted}"
+    print_summary_line ""
+    print_summary_line "RESULTS:"
+
+    # Check if any validation checks failed (only for steps that ran)
+    local any_failed=false
+    for step in aws gcp ocp; do
+        if should_run_step "$step" && [[ ${check_results[$step]} -eq 1 ]]; then
+            any_failed=true
+            break
+        fi
+    done
+
+    # Print individual check results
+    for step in aws gcp ocp feature-gates; do
+        if should_run_step "$step"; then
+            print_individual_check "$step" "${check_num[$step]}" "${check_name[$step]}" \
+                "${check_results[$step]}" "${check_diff_count[$step]}" "${check_message[$step]}" \
+                "${check_type[$step]}"
+        fi
+    done
+
+    print_summary_line ""
+
+    # Overall status with warnings
+    local has_warnings=false
+    for step in aws gcp ocp feature-gates; do
+        if should_run_step "$step" && [[ ${check_results[$step]} -eq 0 ]] && [[ ${check_diff_count[$step]} -gt 0 ]]; then
+            has_warnings=true
+            break
+        fi
+    done
+
+    if [[ "$any_failed" == "false" ]]; then
+        if [[ "$has_warnings" == "true" ]]; then
+            print_summary_line "OVERALL STATUS: SUCCESS (with warnings)"
+        else
+            print_summary_line "OVERALL STATUS: SUCCESS"
+        fi
+    else
+        print_summary_line "OVERALL STATUS: FAILED"
+    fi
+
+    print_summary_line ""
+    print_summary_line "ARTIFACTS:"
+    print_summary_line "- Reports directory: ${REPORT_DIR}/"
+
+    # List HTML reports if they exist
+    local html_reports=$(find "${REPORT_DIR}" -maxdepth 1 -name "*.html" -type f 2>/dev/null | sort)
+    if [[ -n "$html_reports" ]]; then
+        print_summary_line "- HTML reports:"
+        while IFS= read -r report; do
+            local basename=$(basename "$report")
+            print_summary_line "  • https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/${JOB_NAME}/${BUILD_ID}/artifacts/test/artifacts/rosa-gap-analysis-reports/${basename}"
+        done <<< "$html_reports"
+    fi
+
+    # Add build log if available
+    if [[ -n "${JOB_NAME:-}" && -n "${BUILD_ID:-}" ]]; then
+        print_summary_line "- Build log: https://prow.ci.openshift.org/view/gs/test-platform-results/logs/${JOB_NAME}/${BUILD_ID}/build-log.txt"
+    fi
+
+    print_summary_line "==============================================================================="
+
 }
 
 main "$@"

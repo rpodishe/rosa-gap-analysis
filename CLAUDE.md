@@ -149,7 +149,7 @@ export GH_TOKEN="..." && ./ci/prow-autofix.sh
 
 **Report generation (reporters.py):**
 - Templates in `scripts/templates/*.html.j2`
-- Timestamped filenames: `gap-analysis-{type}_{baseline}_to_{target}_{timestamp}.{ext}`
+- Filenames: `gap-analysis-{type}_{baseline}_to_{target}.{ext}`
 - Combined report aggregates all individual JSON reports
 
 **Python import pattern (all scripts):**
