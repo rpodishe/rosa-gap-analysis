@@ -19,6 +19,7 @@ VERBOSE=false
 DRY_RUN=false
 REPORT_DIR="${REPORT_DIR:-reports}"
 STEPS=""
+TIMESTAMP=false
 
 usage() {
     cat <<EOF
@@ -38,6 +39,7 @@ Optional Arguments:
   --dry-run                Show resolved versions and exit without running analysis
   --verbose                Enable verbose logging
   --report-dir <path>      Directory to store reports (default: reports/)
+  --timestamp              Add timestamp to generated report filenames
   -h, --help               Show this help
 
 Note: You must use either:
@@ -115,6 +117,7 @@ while [[ $# -gt 0 ]]; do
         --dry-run) DRY_RUN=true; shift ;;
         --verbose) VERBOSE=true; shift ;;
         --report-dir) REPORT_DIR="$2"; shift 2 ;;
+        --timestamp) TIMESTAMP=true; shift ;;
         -h|--help) usage ;;
         *) log_error "Unknown option: $1"; usage ;;
     esac
@@ -289,10 +292,15 @@ if [[ "$DRY_RUN" == "true" ]]; then
     exit 0
 fi
 
-# Build verbose flag
+# Build flags for gap scripts
 VERBOSE_FLAG=""
 if [[ "$VERBOSE" == "true" ]]; then
     VERBOSE_FLAG="--verbose"
+fi
+
+TIMESTAMP_FLAG=""
+if [[ "$TIMESTAMP" == "true" ]]; then
+    TIMESTAMP_FLAG="--timestamp"
 fi
 
 main() {
@@ -485,7 +493,7 @@ main() {
             --baseline "$BASELINE" \
             --target "$TARGET" \
             --report-dir "$REPORT_DIR" \
-            $VERBOSE_FLAG 2>&1; then
+            $VERBOSE_FLAG $TIMESTAMP_FLAG 2>&1; then
             check_results[aws]=0
         else
             check_results[aws]=1
@@ -503,7 +511,7 @@ main() {
             --baseline "$BASELINE" \
             --target "$TARGET" \
             --report-dir "$REPORT_DIR" \
-            $VERBOSE_FLAG 2>&1; then
+            $VERBOSE_FLAG $TIMESTAMP_FLAG 2>&1; then
             check_results[gcp]=0
         else
             check_results[gcp]=1
@@ -521,7 +529,7 @@ main() {
             --baseline "$BASELINE" \
             --target "$TARGET" \
             --report-dir "$REPORT_DIR" \
-            $VERBOSE_FLAG 2>&1; then
+            $VERBOSE_FLAG $TIMESTAMP_FLAG 2>&1; then
             check_results[ocp]=0
         else
             check_results[ocp]=1
@@ -540,7 +548,7 @@ main() {
             --baseline "$BASELINE" \
             --target "$TARGET" \
             --report-dir "$REPORT_DIR" \
-            $VERBOSE_FLAG 2>&1; then
+            $VERBOSE_FLAG $TIMESTAMP_FLAG 2>&1; then
             check_results[feature-gates]=0
         else
             check_results[feature-gates]=1
@@ -561,7 +569,8 @@ main() {
     python3 "${SCRIPT_DIR}/generate-combined-report.py" \
         --baseline "$BASELINE" \
         --target "$TARGET" \
-        --report-dir "$REPORT_DIR" 2>&1 || {
+        --report-dir "$REPORT_DIR" \
+        $TIMESTAMP_FLAG 2>&1 || {
         log_warning "Failed to generate combined report (individual reports still available)"
     }
 

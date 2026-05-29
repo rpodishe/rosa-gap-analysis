@@ -438,6 +438,8 @@ Exit Codes:
     parser.add_argument('--report-dir',
                        default=os.environ.get('REPORT_DIR', 'reports'),
                        help='Directory to store reports (default: reports/, env: REPORT_DIR)')
+    parser.add_argument('--timestamp', action='store_true',
+                       help='Add timestamp to generated report filenames')
     parser.add_argument('--dry-run', action='store_true',
                        help='Show versions that would be used and exit (no analysis performed)')
 
@@ -514,7 +516,8 @@ Exit Codes:
     report_dir = args.report_dir
     os.makedirs(report_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    # Generate timestamp suffix if requested
+    timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}" if args.timestamp else ""
 
     # Always validate target version structure (regardless of whether changes detected)
     log_info("\nValidating target version structure in managed-cluster-config...")
@@ -604,7 +607,7 @@ Exit Codes:
     }
 
     # Always generate JSON report (needed for combined report)
-    json_file = os.path.join(report_dir, f"gap-analysis-aws-sts_{baseline}_to_{target}.json")
+    json_file = os.path.join(report_dir, f"gap-analysis-aws-sts_{baseline}_to_{target}{timestamp_suffix}.json")
     generate_json_report(report_data, json_file)
     log_info(f"JSON report generated: {json_file}")
 
@@ -613,7 +616,7 @@ Exit Codes:
         log_info("Skipping HTML reports (full report will be generated)")
     else:
         # Generate HTML report
-        html_file = os.path.join(report_dir, f"gap-analysis-aws-sts_{baseline}_to_{target}.html")
+        html_file = os.path.join(report_dir, f"gap-analysis-aws-sts_{baseline}_to_{target}{timestamp_suffix}.html")
         generate_html_report(report_data, html_file)
         log_info(f"HTML report generated: {html_file}")
 
@@ -646,7 +649,8 @@ Exit Codes:
         check_name="AWS STS Policy Gap",
         status=validation_result,
         details=status_details,
-        report_dir=report_dir
+        report_dir=report_dir,
+        add_timestamp=args.timestamp
     )
 
     # Exit based on validation result

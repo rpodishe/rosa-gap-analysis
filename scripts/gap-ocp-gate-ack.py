@@ -395,6 +395,8 @@ Exit Codes:
     parser.add_argument('--report-dir',
                        default=os.environ.get('REPORT_DIR', 'reports'),
                        help='Directory to store reports (default: reports/, env: REPORT_DIR)')
+    parser.add_argument('--timestamp', action='store_true',
+                       help='Add timestamp to generated report filenames')
     parser.add_argument('--dry-run', action='store_true',
                        help='Show versions that would be used and exit (no analysis performed)')
 
@@ -497,7 +499,7 @@ Exit Codes:
         report_dir = args.report_dir
         os.makedirs(report_dir, exist_ok=True)
 
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}" if args.timestamp else ""
 
         # Calculate summary
         acked_count = len(analysis['acknowledged_gates'])
@@ -542,7 +544,7 @@ Exit Codes:
         }
 
         # Always generate JSON report (needed for combined report)
-        json_file = os.path.join(report_dir, f"gap-analysis-ocp-gate-ack_{baseline_minor}_to_{ack_check_version}.json")
+        json_file = os.path.join(report_dir, f"gap-analysis-ocp-gate-ack_{baseline_minor}_to_{ack_check_version}{timestamp_suffix}.json")
         generate_json_report(report_data, json_file)
         log_info(f"JSON report generated: {json_file}")
 
@@ -551,7 +553,7 @@ Exit Codes:
             log_info("Skipping HTML reports (full report will be generated)")
         else:
             # Generate HTML report
-            html_file = os.path.join(report_dir, f"gap-analysis-ocp-gate-ack_{baseline_minor}_to_{ack_check_version}.html")
+            html_file = os.path.join(report_dir, f"gap-analysis-ocp-gate-ack_{baseline_minor}_to_{ack_check_version}{timestamp_suffix}.html")
             generate_html_report(report_data, html_file)
             log_info(f"HTML report generated: {html_file}")
 
@@ -594,7 +596,8 @@ Exit Codes:
                 check_name="OCP Admin Gate Acknowledgments",
                 status="FAIL",
                 details=status_details,
-                report_dir=args.report_dir
+                report_dir=args.report_dir,
+                add_timestamp=args.timestamp
             )
 
             sys.exit(1)
@@ -635,7 +638,8 @@ Exit Codes:
                 check_name="OCP Admin Gate Acknowledgments",
                 status="PASS",
                 details=status_details,
-                report_dir=args.report_dir
+                report_dir=args.report_dir,
+                add_timestamp=args.timestamp
             )
 
             sys.exit(0)

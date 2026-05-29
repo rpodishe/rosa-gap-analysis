@@ -32,7 +32,7 @@ def generate_json_report(data: Dict[str, Any], output_file: str = None) -> str:
 
 
 def generate_status_report(check_number: int, check_name: str, status: str,
-                          details: Dict[str, Any], report_dir: str) -> None:
+                          details: Dict[str, Any], report_dir: str, add_timestamp: bool = False) -> None:
     """
     Generate a structured status file for gap-all.sh to consume.
 
@@ -42,6 +42,7 @@ def generate_status_report(check_number: int, check_name: str, status: str,
         status: PASS, FAIL, WARNING, ERROR, SKIP
         details: Dictionary containing check-specific details
         report_dir: Directory to write status file
+        add_timestamp: If True, append timestamp to filename
     """
     status_data = {
         "check_number": check_number,
@@ -54,7 +55,8 @@ def generate_status_report(check_number: int, check_name: str, status: str,
     report_path = Path(report_dir)
     report_path.mkdir(parents=True, exist_ok=True)
 
-    status_file = report_path / f"status-check-{check_number}.json"
+    timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}" if add_timestamp else ""
+    status_file = report_path / f"status-check-{check_number}{timestamp_suffix}.json"
     with open(status_file, 'w') as f:
         json.dump(status_data, f, indent=2)
 
