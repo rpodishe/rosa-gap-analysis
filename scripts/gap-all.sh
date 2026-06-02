@@ -577,6 +577,7 @@ main() {
     if [[ "$should_exit_fail" == "true" ]]; then
         log_error ""
         log_error "❌ FAILED"
+        exit 1
     else
         log_success ""
         log_success "✅ PASSED"
