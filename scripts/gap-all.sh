@@ -591,11 +591,11 @@ main() {
     echo "==============================================================================="
 
     # Job information (if running in CI)
-    if [[ -n "${job}" ]]; then
-        echo "Job: ${job}"
+    if [[ -z "${job:-}" ]]; then
+        job="job123"
     fi
-    if [[ -n "${buildid}" ]]; then
-        echo "Run: ${buildid}"
+    if [[ -z "${buildid:-}" ]]; then
+        buildid="build1234"
     fi
 
     echo "Baseline: ${BASELINE}"
