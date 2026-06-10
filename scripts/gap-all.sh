@@ -27,6 +27,7 @@ Run gap analysis between two OpenShift versions for both AWS and GCP platforms.
 Validates target version structure in managed-cluster-config repository.
 Exits 1 if target version validation fails (FAIL), exits 0 if validation passes (PASS).
 
+
 Optional Arguments:
   --baseline <version>     Baseline version (must be used with --target)
   --target <version>       Target version (must be used with --baseline)
@@ -49,6 +50,7 @@ Environment Variables:
                           Special values: NIGHTLY (dev nightly), CANDIDATE (dev candidate)
   OPENSHIFT_VERSION       Single version to analyze (auto-resolves baseline and target)
   REPORT_DIR              Directory to store reports (default: reports/)
+  OCM_TOKEN               To run the script with local access set OCM_TOKEN environement varilable or log in to ocm environment beforehand
 
 Version Resolution Precedence (highest to lowest):
   1. --version flag (auto-resolve baseline and target)
@@ -96,6 +98,7 @@ Examples:
   OPENSHIFT_VERSION=4.22 $0                        # Same as --version 4.22
   BASE_VERSION=4.21.5 TARGET_VERSION=4.22.0-ec.2 $0  # Both required
   BASE_VERSION=4.21 TARGET_VERSION=NIGHTLY $0      # Nightly target
+  OCM_TOKEN=xxxxxx
 
 Exit Codes:
   0 - All checks passed (PASS)
@@ -140,6 +143,20 @@ if ( [[ -n "$BASELINE" ]] && [[ -z "$TARGET" ]] ) || ( [[ -z "$BASELINE" ]] && [
     log_error "  --baseline <ver> --target <ver>  (explicit control)"
     exit 1
 fi
+
+# OCM authentication if credentials are available
+if [[ -n "${OCM_TOKEN:-}" ]]; then
+    log_info "Logging in to the ocm environemnt using OCM_TOKEN"
+    ocm login --token "${OCM_TOKEN}"
+else
+    if [[ -n "${OCM_CLIENT_ID:-}" &&  -n "${OCM_CLIENT_SECRET:-}" ]]; then
+        log_info "Logging in to the ocm environemnt using client_id and secret"
+        ocm login --client-id "${OCM_CLIENT_ID}" --client-secret "${OCM_CLIENT_SECRET}"
+    else
+        log_info "Can not log in to the ocm environemnt due to missing credentials"
+    fi
+fi
+
 
 # Version Resolution with Precedence Order:
 # 1. --version flag → auto-resolve both baseline and target
