@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/logging.sh"
 source "${SCRIPT_DIR}/lib/openshift-releases.sh"
+source "${SCRIPT_DIR}/lib/ocm_auth.sh"
 
 # Get project root (one level up from scripts/)
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -143,20 +144,6 @@ if ( [[ -n "$BASELINE" ]] && [[ -z "$TARGET" ]] ) || ( [[ -z "$BASELINE" ]] && [
     log_error "  --baseline <ver> --target <ver>  (explicit control)"
     exit 1
 fi
-
-# OCM authentication if credentials are available
-if [[ -n "${OCM_TOKEN:-}" ]]; then
-    log_info "Logging in to the ocm environemnt using OCM_TOKEN"
-    ocm login --token "${OCM_TOKEN}"
-else
-    if [[ -n "${OCM_CLIENT_ID:-}" &&  -n "${OCM_CLIENT_SECRET:-}" ]]; then
-        log_info "Logging in to the ocm environemnt using client_id and secret"
-        ocm login --client-id "${OCM_CLIENT_ID}" --client-secret "${OCM_CLIENT_SECRET}"
-    else
-        log_info "Can not log in to the ocm environemnt due to missing credentials"
-    fi
-fi
-
 
 # Version Resolution with Precedence Order:
 # 1. --version flag → auto-resolve both baseline and target
