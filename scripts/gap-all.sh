@@ -27,7 +27,6 @@ Run gap analysis between two OpenShift versions for both AWS and GCP platforms.
 Validates target version structure in managed-cluster-config repository.
 Exits 1 if target version validation fails (FAIL), exits 0 if validation passes (PASS).
 
-
 Optional Arguments:
   --baseline <version>     Baseline version (must be used with --target)
   --target <version>       Target version (must be used with --baseline)
