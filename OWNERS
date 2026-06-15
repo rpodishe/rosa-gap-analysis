@@ -5,6 +5,7 @@ approvers:
 - smarthall
 - dustman9000
 - tiwillia
+- tkong-redhat
 
 reviewers:
 - ravitri
@@ -13,3 +14,6 @@ reviewers:
 - smarthall
 - dustman9000
 - tiwillia
+- tkong-redhat
+- charlesgong
+- Tafhim
