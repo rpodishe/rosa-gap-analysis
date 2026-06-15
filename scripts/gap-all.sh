@@ -400,17 +400,6 @@ main() {
         return 1
     }
 
-    # Helper function to print check result
-    print_check_result() {
-        local symbol="$1"
-        local check_num="$2"
-        local check_name="$3"
-        local status="$4"
-        local message="$5"
-
-        echo "[$symbol] CHECK #$check_num: $check_name - $status ($message)"
-    }
-
     # Helper function to read status file and populate check arrays
     read_check_status() {
         local step="$1"
@@ -470,7 +459,7 @@ main() {
             fi
         fi
 
-        print_check_result "$symbol" "$check_num" "$check_name" "$status" "$message"
+        echo "[$symbol] CHECK #$check_num: $check_name - $status ($message)"
     }
 
     # Run AWS STS analysis
