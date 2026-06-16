@@ -438,8 +438,6 @@ Exit Codes:
     parser.add_argument('--report-dir',
                        default=os.environ.get('REPORT_DIR', 'reports'),
                        help='Directory to store reports (default: reports/, env: REPORT_DIR)')
-    parser.add_argument('--timestamp', action='store_true',
-                       help='Add timestamp to generated report filenames')
     parser.add_argument('--dry-run', action='store_true',
                        help='Show versions that would be used and exit (no analysis performed)')
 
@@ -516,8 +514,8 @@ Exit Codes:
     report_dir = args.report_dir
     os.makedirs(report_dir, exist_ok=True)
 
-    # Generate timestamp suffix if requested
-    timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}" if args.timestamp else ""
+    # Generate timestamp suffix
+    timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Always validate target version structure (regardless of whether changes detected)
     log_info("\nValidating target version structure in managed-cluster-config...")
@@ -650,7 +648,7 @@ Exit Codes:
         status=validation_result,
         details=status_details,
         report_dir=report_dir,
-        add_timestamp=args.timestamp
+        add_timestamp=True
     )
 
     # Exit based on validation result

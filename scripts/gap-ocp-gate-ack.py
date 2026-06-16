@@ -395,8 +395,6 @@ Exit Codes:
     parser.add_argument('--report-dir',
                        default=os.environ.get('REPORT_DIR', 'reports'),
                        help='Directory to store reports (default: reports/, env: REPORT_DIR)')
-    parser.add_argument('--timestamp', action='store_true',
-                       help='Add timestamp to generated report filenames')
     parser.add_argument('--dry-run', action='store_true',
                        help='Show versions that would be used and exit (no analysis performed)')
 
@@ -499,7 +497,7 @@ Exit Codes:
         report_dir = args.report_dir
         os.makedirs(report_dir, exist_ok=True)
 
-        timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}" if args.timestamp else ""
+        timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         # Calculate summary
         acked_count = len(analysis['acknowledged_gates'])
@@ -597,7 +595,7 @@ Exit Codes:
                 status="FAIL",
                 details=status_details,
                 report_dir=args.report_dir,
-                add_timestamp=args.timestamp
+                add_timestamp=True
             )
 
             sys.exit(1)
@@ -639,7 +637,7 @@ Exit Codes:
                 status="PASS",
                 details=status_details,
                 report_dir=args.report_dir,
-                add_timestamp=args.timestamp
+                add_timestamp=True
             )
 
             sys.exit(0)

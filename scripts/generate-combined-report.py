@@ -77,8 +77,6 @@ def main():
     parser.add_argument('--report-dir',
                        default=os.environ.get('REPORT_DIR', 'reports'),
                        help='Directory to store reports (default: reports/, env: REPORT_DIR)')
-    parser.add_argument('--timestamp', action='store_true',
-                       help='Add timestamp to generated report filenames')
 
     args = parser.parse_args()
 
@@ -121,7 +119,7 @@ def main():
         log_info(f"Loaded OCP Gate Acknowledgment report: {reports['ocp_gate_ack']}")
 
     # Generate combined reports
-    timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}" if args.timestamp else ""
+    timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Generate HTML report
     html_file = os.path.join(args.report_dir, f"gap-analysis-full_{args.baseline}_to_{args.target}{timestamp_suffix}.html")
