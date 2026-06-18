@@ -6,6 +6,7 @@ FROM registry.access.redhat.com/ubi9/ubi:latest
 
 ARG OC_VERSION=4.21
 ARG YQ_VERSION=v4.52.4
+ARG OCM_CLI_BASE_URL="https://github.com/openshift-online/ocm-cli/releases/latest/download"
 
 # System packages
 RUN dnf install --allowerasing -y \
@@ -21,7 +22,6 @@ RUN dnf install --allowerasing -y \
         findutils \
         diffutils \
         coreutils \
-        ocm-cli \
     && dnf clean all
 
 # Install Python packages
@@ -49,6 +49,16 @@ RUN curl -fsSL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable
     chmod +x /usr/local/bin/oc /usr/local/bin/kubectl && \
     rm -f /tmp/oc.tar.gz && \
     oc version --client
+
+# Install ocm-cli 
+RUN arch=$(uname -m) && \
+    case "${arch}" in \
+        x86_64)  arch="amd64" ;; \
+        aarch64) arch="arm64" ;; \
+    esac && \
+    curl -fsSL "${OCM_CLI_BASE_URL}/ocm-linux-${arch}" -o /usr/local/bin/ocm && \
+    chmod +x /usr/local/bin/ocm && \
+    ocm version
 
 # Pre-create cache directories writable by any UID (OpenShift runs as random UID)
 RUN mkdir -p /tmp/.cache /tmp/gap-analysis-data && \
