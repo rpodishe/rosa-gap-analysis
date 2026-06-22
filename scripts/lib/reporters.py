@@ -55,8 +55,7 @@ def generate_status_report(check_number: int, check_name: str, status: str,
     report_path = Path(report_dir)
     report_path.mkdir(parents=True, exist_ok=True)
 
-    timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    status_file = report_path / f"status-check-{check_number}{timestamp_suffix}.json"
+    status_file = report_path / f"status-check-{check_number}.json"
     with open(status_file, 'w') as f:
         json.dump(status_data, f, indent=2)
 
