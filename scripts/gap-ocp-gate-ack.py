@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent / 'lib'))
 
 from common import log_info, log_success, log_error, log_warning
 from openshift_releases import resolve_openshift_version, extract_minor_version, get_next_minor_version
-from reporters import generate_html_report, generate_json_report
+from reporters import generate_html_report, generate_json_report, generate_status_report
 from ack_validation import fetch_yaml_from_url, calculate_expected_baseline, validate_config_yaml
 
 try:
@@ -497,7 +497,7 @@ Exit Codes:
         report_dir = args.report_dir
         os.makedirs(report_dir, exist_ok=True)
 
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         # Calculate summary
         acked_count = len(analysis['acknowledged_gates'])
@@ -542,7 +542,7 @@ Exit Codes:
         }
 
         # Always generate JSON report (needed for combined report)
-        json_file = os.path.join(report_dir, f"gap-analysis-ocp-gate-ack_{baseline_minor}_to_{ack_check_version}_{timestamp}.json")
+        json_file = os.path.join(report_dir, f"gap-analysis-ocp-gate-ack_{baseline_minor}_to_{ack_check_version}{timestamp_suffix}.json")
         generate_json_report(report_data, json_file)
         log_info(f"JSON report generated: {json_file}")
 
@@ -551,7 +551,7 @@ Exit Codes:
             log_info("Skipping HTML reports (full report will be generated)")
         else:
             # Generate HTML report
-            html_file = os.path.join(report_dir, f"gap-analysis-ocp-gate-ack_{baseline_minor}_to_{ack_check_version}_{timestamp}.html")
+            html_file = os.path.join(report_dir, f"gap-analysis-ocp-gate-ack_{baseline_minor}_to_{ack_check_version}{timestamp_suffix}.html")
             generate_html_report(report_data, html_file)
             log_info(f"HTML report generated: {html_file}")
 
@@ -579,6 +579,25 @@ Exit Codes:
 
             log_error("")
             log_error(f"❌ FAILED - Target version validation failed")
+
+            # Generate status report for gap-all.sh
+            status_message = f"{unacked_count} gate(s) not acknowledged" if unacked_count > 0 else "validation failed"
+            status_details = {
+                "gates_count": gates_count,
+                "acked_count": acked_count,
+                "unacked_count": unacked_count,
+                "validation_passed": False,
+                "message": status_message
+            }
+            generate_status_report(
+                check_number=3,
+                check_name="OCP Admin Gate Acknowledgments",
+                status="FAIL",
+                details=status_details,
+                report_dir=args.report_dir,
+                add_timestamp=True
+            )
+
             sys.exit(1)
         else:
             log_success("=" * 60)
@@ -598,6 +617,29 @@ Exit Codes:
 
             log_success("")
             log_success(f"✅ PASSED - Target version structure validated")
+
+            # Generate status report for gap-all.sh
+            if gates_count > 0:
+                status_message = f"{acked_count} gate(s) acknowledged"
+            else:
+                status_message = "no gates requiring acknowledgment"
+
+            status_details = {
+                "gates_count": gates_count,
+                "acked_count": acked_count,
+                "unacked_count": unacked_count,
+                "validation_passed": True,
+                "message": status_message
+            }
+            generate_status_report(
+                check_number=3,
+                check_name="OCP Admin Gate Acknowledgments",
+                status="PASS",
+                details=status_details,
+                report_dir=args.report_dir,
+                add_timestamp=True
+            )
+
             sys.exit(0)
 
     except Exception as e:

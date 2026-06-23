@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent / 'lib'))
 
 from common import log_info, log_success, log_error, check_command
 from openshift_releases import resolve_openshift_version, extract_minor_version
-from reporters import generate_html_report, generate_json_report
+from reporters import generate_html_report, generate_json_report, generate_status_report
 
 
 SIPPY_FEATURE_GATES_API = "https://sippy.dptools.openshift.org/api/feature_gates"
@@ -271,8 +271,10 @@ Exit Codes:
     is_z_stream = (baseline == target)
 
     # Main execution
+    start_time = datetime.now()
     log_info("Starting Feature Gate Gap Analysis")
     log_info("=========================================")
+    log_info(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     log_info(f"Baseline version: {baseline_full} (minor: {baseline})")
     log_info(f"Target version: {target_full} (minor: {target})")
     if is_z_stream:
@@ -340,7 +342,7 @@ Exit Codes:
     report_dir = args.report_dir
     os.makedirs(report_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     # Feature gates are informational only - always PASS regardless of changes
     validation_result = 'PASS'
 
@@ -390,7 +392,7 @@ Exit Codes:
         }
 
     # Always generate JSON report (needed for combined report)
-    json_file = os.path.join(report_dir, f"gap-analysis-feature-gates_{baseline}_to_{target}_{timestamp}.json")
+    json_file = os.path.join(report_dir, f"gap-analysis-feature-gates_{baseline}_to_{target}{timestamp_suffix}.json")
     generate_json_report(report_data, json_file)
     log_info(f"JSON report generated: {json_file}")
 
@@ -399,7 +401,7 @@ Exit Codes:
         log_info("Skipping HTML reports (full report will be generated)")
     else:
         # Generate HTML report
-        html_file = os.path.join(report_dir, f"gap-analysis-feature-gates_{baseline}_to_{target}_{timestamp}.html")
+        html_file = os.path.join(report_dir, f"gap-analysis-feature-gates_{baseline}_to_{target}{timestamp_suffix}.html")
         generate_html_report(report_data, html_file)
         log_info(f"HTML report generated: {html_file}")
 
@@ -435,6 +437,37 @@ Exit Codes:
 
     log_success("")
     log_success(f"✅ PASSED - Feature Gates analysis complete (informational)")
+
+    # Generate status report for gap-all.sh
+    if is_z_stream:
+        status_message = f"{len(default_hypershift_gates)} default gates"
+    else:
+        total_changes = added_count + removed_count + newly_default_count + removed_default_count
+        if total_changes == 0:
+            status_message = "no changes detected"
+        else:
+            status_message = f"{total_changes} change(s) detected"
+
+    status_details = {
+        "is_z_stream": is_z_stream,
+        "total_changes": total_changes if not is_z_stream else 0,
+        "added_count": added_count if not is_z_stream else 0,
+        "removed_count": removed_count if not is_z_stream else 0,
+        "newly_default_count": newly_default_count if not is_z_stream else 0,
+        "removed_default_count": removed_default_count if not is_z_stream else 0,
+        "default_gates_count": len(default_hypershift_gates) if is_z_stream else 0,
+        "message": status_message
+    }
+
+    generate_status_report(
+        check_number=4,
+        check_name="Feature Gates Gap",
+        status="PASS",
+        details=status_details,
+        report_dir=args.report_dir,
+        add_timestamp=True
+    )
+
     sys.exit(0)
 
 

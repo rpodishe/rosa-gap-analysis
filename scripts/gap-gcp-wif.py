@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent / 'lib'))
 
 from common import log_info, log_success, log_error, log_warning, check_command, is_pre_ga_version
 from openshift_releases import resolve_openshift_version, extract_minor_version
-from reporters import generate_html_report, generate_json_report
+from reporters import generate_html_report, generate_json_report, generate_status_report
 from ack_validation import (
     fetch_yaml_from_url,
     calculate_expected_baseline,
@@ -484,7 +484,8 @@ Exit Codes:
     report_dir = args.report_dir
     os.makedirs(report_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    # Generate timestamp suffix
+    timestamp_suffix = f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Always validate target version structure (regardless of whether changes detected)
     log_info("\nValidating target version structure in managed-cluster-config...")
@@ -578,7 +579,7 @@ Exit Codes:
     }
 
     # Always generate JSON report (needed for combined report)
-    json_file = os.path.join(report_dir, f"gap-analysis-gcp-wif_{baseline}_to_{target}_{timestamp}.json")
+    json_file = os.path.join(report_dir, f"gap-analysis-gcp-wif_{baseline}_to_{target}{timestamp_suffix}.json")
     generate_json_report(report_data, json_file)
     log_info(f"JSON report generated: {json_file}")
 
@@ -587,7 +588,7 @@ Exit Codes:
         log_info("Skipping HTML reports (full report will be generated)")
     else:
         # Generate HTML report
-        html_file = os.path.join(report_dir, f"gap-analysis-gcp-wif_{baseline}_to_{target}_{timestamp}.html")
+        html_file = os.path.join(report_dir, f"gap-analysis-gcp-wif_{baseline}_to_{target}{timestamp_suffix}.html")
         generate_html_report(report_data, html_file)
         log_info(f"HTML report generated: {html_file}")
 
@@ -595,6 +596,34 @@ Exit Codes:
     import shutil
     shutil.rmtree(baseline_cr_dir, ignore_errors=True)
     shutil.rmtree(target_cr_dir, ignore_errors=True)
+
+    # Generate status report for gap-all.sh
+    if validation_result == 'FAIL':
+        failed_checks = validation_details.get('failed_checks', [])
+        status_message = f"{len(failed_checks)} validation failure(s)"
+    else:
+        if total_changes == 0:
+            status_message = "0 differences found"
+        else:
+            status_message = f"{total_changes} difference(s) found"
+
+    status_details = {
+        "differences_count": total_changes,
+        "added_count": added_count,
+        "removed_count": removed_count,
+        "validation_passed": validation_result == 'PASS',
+        "validation_checked": validation_checked,
+        "message": status_message
+    }
+
+    generate_status_report(
+        check_number=2,
+        check_name="GCP WIF Template Gap",
+        status=validation_result,
+        details=status_details,
+        report_dir=report_dir,
+        add_timestamp=True
+    )
 
     # Exit based on validation result
     if validation_result == 'FAIL':
